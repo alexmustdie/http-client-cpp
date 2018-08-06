@@ -67,6 +67,8 @@ string HttpClient::makeRequest(const string &url) const
       throw runtime_error(curl_easy_strerror(res));
     }
 
+    std::cout << data << std::endl;
+
     curl_easy_cleanup(curl);
   }
 
@@ -79,7 +81,7 @@ string HttpClient::buildQuery(const map<string, string> &params) const noexcept
 
   for (auto param = params.begin(); param != params.end(); ++param)
   {
-    data += param->first + "=" + param->second;
+    data += param->first + "=" + encodeUrl(param->second);
 
     if (param != --params.end())
     {
