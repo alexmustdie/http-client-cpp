@@ -17,6 +17,7 @@ namespace http_client
     std::string encodeUrl(const std::string &s) const noexcept;
 
   private:
+    CURL *curl_;
     curl_slist *headers_;
   };
 }

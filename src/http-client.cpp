@@ -7,6 +7,7 @@ using namespace http_client;
 using namespace std;
 
 HttpClient::HttpClient(const map<string, string> &headers):
+  curl_(curl_easy_init()),
   headers_(nullptr)
 {
   headers_ = curl_slist_append(headers_, "accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8");
@@ -21,6 +22,7 @@ HttpClient::HttpClient(const map<string, string> &headers):
 
 HttpClient::~HttpClient()
 {
+  curl_easy_cleanup(curl_);
   curl_slist_free_all(headers_);
 }
 
@@ -46,31 +48,24 @@ size_t writeCurlToString(void *contents, size_t size, size_t nmemb, string *s)
 
 string HttpClient::makeRequest(const string &url) const
 {
-  CURL *curl = curl_easy_init();
   CURLcode res;
-
   string data;
   
-  if (curl)
+  curl_easy_setopt(curl_, CURLOPT_URL, url.c_str());
+  curl_easy_setopt(curl_, CURLOPT_HEADER, 0);
+  curl_easy_setopt(curl_, CURLOPT_CONNECTTIMEOUT, 30);
+  curl_easy_setopt(curl_, CURLOPT_WRITEFUNCTION, writeCurlToString);
+  curl_easy_setopt(curl_, CURLOPT_WRITEDATA, &data);
+  curl_easy_setopt(curl_, CURLOPT_HTTPHEADER, headers_);
+
+  res = curl_easy_perform(curl_);
+
+  if (res != CURLE_OK)
   {
-    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-    curl_easy_setopt(curl, CURLOPT_HEADER, 0);
-    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 30);
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeCurlToString);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &data);
-    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers_);
- 
-    res = curl_easy_perform(curl);
-
-    if (res != CURLE_OK)
-    {
-      throw runtime_error(curl_easy_strerror(res));
-    }
-
-    std::cout << data << std::endl;
-
-    curl_easy_cleanup(curl);
+    throw runtime_error(curl_easy_strerror(res));
   }
+
+  std::cout << data << std::endl;
 
   return data;
 }
@@ -94,22 +89,12 @@ string HttpClient::buildQuery(const map<string, string> &params) const noexcept
 
 string HttpClient::encodeUrl(const string &s) const noexcept
 {
-  CURL *curl = curl_easy_init();
+  char *encoded_str = curl_easy_escape(curl_, s.c_str(), s.size());
 
-  string data;
-  
-  if (curl)
+  if (encoded_str)
   {
-    char *encoded_str = curl_easy_escape(curl, s.c_str(), s.size());
-
-    if (encoded_str)
-    {
-      data = encoded_str;
-      curl_free(encoded_str);
-    }
-
-    curl_easy_cleanup(curl);
+    curl_free(encoded_str);
   }
 
-  return data;
+  return encoded_str;
 }
